@@ -1,0 +1,124 @@
+import requests
+import geocoder
+import json
+import folium
+import pandas as pd
+
+def find_restaurant(place, cuisine):
+    endpoint = "https://api.yelp.com/v3"
+    yelpkey = "0y4QvsHeiDP-jhn5ArW3jB_akpUbYM1M_slolPhBsYES72pGfrZOTsb6cv1TXTZkxVnyVfuFzINn4_JOWDh7uGMn07SWrtzuOARk-6uO5ttZQBZ7k6xa_f0GBuGfXnYx"
+    url = f"{endpoint}/businesses/search"
+    header = {'Authorization' : f'Bearer {yelpkey}'}
+    parameter = { 'term' : cuisine, 'location' : place, "sort_by" : "rating"}
+    response = requests.get(url, params = parameter, headers = header)
+    restaurant_info = response.json()
+    return restaurant_info['businesses']
+
+def yelp_reviews(id):
+    endpoint = "https://api.yelp.com/v3"
+    yelpkey = "0y4QvsHeiDP-jhn5ArW3jB_akpUbYM1M_slolPhBsYES72pGfrZOTsb6cv1TXTZkxVnyVfuFzINn4_JOWDh7uGMn07SWrtzuOARk-6uO5ttZQBZ7k6xa_f0GBuGfXnYx"
+    url_reviews = f"{endpoint}/businesses/{id}/reviews"
+    header = {'Authorization' : f'Bearer {yelpkey}'}
+    response1 = requests.get(url_reviews, headers = header)
+    reviews = response1.json()
+    return reviews["reviews"]
+
+def text_analytics(text):
+    microsoftkey = "abcee9aa468144f19d3e776e1ace6a96"
+    endpoint2 = "https://ist256-text-analytics-rsun23.cognitiveservices.azure.com/"
+    url = f'{endpoint2}text/analytics/v3.0-preview.1/sentiment'
+
+    header = { 'Ocp-Apim-Subscription-Key' : microsoftkey}
+    documents = {"documents": [
+                {"language": "en", "id": "1", "text": text }
+            ]
+        }
+    response_review = requests.post(url,headers=header, json=documents)
+    sentiment = response_review.json()
+    return sentiment['documents'][0]['sentiment']
+
+def getweather(place):
+    key = "9c3a797ee2dbfbb30d13d2837ce28fac"
+    url = "https://api.openweathermap.org/data/2.5/forecast"
+    options = {'q' : place, 'appid' : key}
+    response = requests.get(url,params = options)
+    weather = response.json()
+    forecast = []
+    i = 1
+    for days in weather["list"]:
+        forecast.append({'Time':days["dt_txt"],'weather':days["weather"][0]["main"],'description':days["weather"][0]["description"],
+                         'max temperature':days["main"]["temp_max"],'min temperature':days["main"]["temp_min"]})
+    weathers = pd.DataFrame(forecast)
+    return weathers
+
+def gmaproute(ori,des):
+    key = "AIzaSyC3bJWUG7HAxVzlWcIsPPuzUSloUWBf_7I"
+    url = "https://maps.googleapis.com/maps/api/directions/json"
+    options = {'key' : key, "origin" : ori, "destination" : des}
+    response = requests.get(url, params = options)
+    gmap = response.json()
+    duration = gmap["routes"][0]["legs"][0]["duration"]["text"]
+    distance = gmap["routes"][0]["legs"][0]["distance"]["text"]
+    start = gmap["routes"][0]["legs"][0]["start_location"]
+    route=[]
+    for point in gmap["routes"][0]["legs"][0]["steps"]:
+        route.append({"distance": point["distance"]["text"] , "instruction" : point["html_instructions"] , 
+                      "end" : point["end_location"], "start" : point["start_location"]})
+    dirgmap = {"start_location" : start , "duration" : duration , "distance" : distance, "steps" : route}
+    return dirgmap
+
+def drawmap(route):
+    loc = (route["start_location"]["lat"],route["start_location"]["lng"])
+    map = folium.Map(location=loc, zoom_start=13)
+    dis = route["distance"]
+    dur = route["duration"]
+    message = f"Start here, total distance {dis}, estimated time {dur}."
+    map.add_child(
+        folium.Marker(location=(route["start_location"]["lat"],route["start_location"]["lng"]), popup=message))
+    for point in route["steps"]:
+        pos = [(point["end"]["lat"],point["end"]["lng"]),(point["start"]["lat"],point["start"]["lng"])]
+        instruction = point["instruction"]
+        dis=point["distance"]
+        message = f"{instruction} for {dis}."
+        map.add_child(
+        folium.PolyLine(locations=pos, popup=message))
+        map.add_child(
+        folium.Marker(location=pos[1], popup=message))
+    return map
+
+def searchAttraction(loc):
+    g = geocoder.osm(loc)
+    lat = g.json['lat']
+    lng = g.json['lng']
+    url = "https://tripadvisor1.p.rapidapi.com/attractions/list-by-latlng"
+    parameter = {"lunit":"km","currency":"USD","limit":"30","distance":"10","lang":"en_US","longitude":lng,"latitude":lat}
+    headers = {
+    'x-rapidapi-host': "tripadvisor1.p.rapidapi.com",
+    'x-rapidapi-key': "4384b18359msh74ab9449c1c81aap1cf1edjsn7d7d8c2acabd"
+    }
+    response = requests.get(url, headers=headers, params=parameter)
+    raw = response.json()
+    attractions = []
+    for place in raw["data"]:
+        if "Tours" not in place["name"] and "Trips" not in place["name"] and "Rental" not in place["name"]:
+            attractions.append({"name":place["name"],"place_string":place["location_string"],"lat":place["latitude"],"lng":place["longitude"]})
+    return attractions
+
+loc = input("Please Enter in a place you would like to go: ")
+weather = getweather(loc)
+print(weather)
+print(searchAttraction(loc))
+food = input("Enter a cuisine: ")
+restaurants_recommendation = []
+for name in find_restaurant(loc, food):
+    na = yelp_reviews(name['id'])
+    rs = name['name']
+    for a in na:
+        sentiment= text_analytics(a['text'])
+        rating = a['rating'] 
+        restaurants_recommendation.append({"Restaurant_Name" : rs, "Reviwer_Sentiment" : sentiment, "Rating" : rating})
+rr = pd.DataFrame(restaurants_recommendation)
+print(rr)
+ori = input("Please enter in where you start at: ")
+des = input("Please enter in your destination: ")
+drawmap(gmaproute(ori,des))
