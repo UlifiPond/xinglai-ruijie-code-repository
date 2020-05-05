@@ -4,7 +4,7 @@ import json
 import folium
 import pandas as pd
 
-def find_restaurant(place, cuisine):
+def find_restaurant(place, cuisine): #This function is used to find restaurants wanted in assigned location
     endpoint = "https://api.yelp.com/v3"
     yelpkey = "0y4QvsHeiDP-jhn5ArW3jB_akpUbYM1M_slolPhBsYES72pGfrZOTsb6cv1TXTZkxVnyVfuFzINn4_JOWDh7uGMn07SWrtzuOARk-6uO5ttZQBZ7k6xa_f0GBuGfXnYx"
     url = f"{endpoint}/businesses/search"
@@ -12,18 +12,18 @@ def find_restaurant(place, cuisine):
     parameter = { 'term' : cuisine, 'location' : place, "sort_by" : "rating"}
     response = requests.get(url, params = parameter, headers = header)
     restaurant_info = response.json()
-    return restaurant_info['businesses']
+    return restaurant_info['businesses'] #Only returns restaurants
 
-def yelp_reviews(id):
+def yelp_reviews(id): #This function is used to gain the reviews for the restaurant from yelp
     endpoint = "https://api.yelp.com/v3"
     yelpkey = "0y4QvsHeiDP-jhn5ArW3jB_akpUbYM1M_slolPhBsYES72pGfrZOTsb6cv1TXTZkxVnyVfuFzINn4_JOWDh7uGMn07SWrtzuOARk-6uO5ttZQBZ7k6xa_f0GBuGfXnYx"
     url_reviews = f"{endpoint}/businesses/{id}/reviews"
     header = {'Authorization' : f'Bearer {yelpkey}'}
     response1 = requests.get(url_reviews, headers = header)
     reviews = response1.json()
-    return reviews["reviews"]
+    return reviews["reviews"] #Return all the reviews
 
-def text_analytics(text):
+def text_analytics(text): #This function is used to assessing the reviewes' sentimennts
     microsoftkey = "abcee9aa468144f19d3e776e1ace6a96"
     endpoint2 = "https://ist256-text-analytics-rsun23.cognitiveservices.azure.com/"
     url = f'{endpoint2}text/analytics/v3.0-preview.1/sentiment'
@@ -37,7 +37,7 @@ def text_analytics(text):
     sentiment = response_review.json()
     return sentiment['documents'][0]['sentiment']
 
-def getweather(place):
+def getweather(place): #Gaining weather in assigned location
     key = "9c3a797ee2dbfbb30d13d2837ce28fac"
     url = "https://api.openweathermap.org/data/2.5/forecast"
     options = {'q' : place, 'appid' : key}
@@ -51,7 +51,7 @@ def getweather(place):
     weathers = pd.DataFrame(forecast)
     return weathers
 
-def gmaproute(ori,des):
+def gmaproute(ori,des): #Gaining route from google map between origin and destination
     key = "AIzaSyC3bJWUG7HAxVzlWcIsPPuzUSloUWBf_7I"
     url = "https://maps.googleapis.com/maps/api/directions/json"
     options = {'key' : key, "origin" : ori, "destination" : des}
@@ -67,7 +67,7 @@ def gmaproute(ori,des):
     dirgmap = {"start_location" : start , "duration" : duration , "distance" : distance, "steps" : route}
     return dirgmap
 
-def drawmap(route):
+def drawmap(route): #Draw route on map and return the map
     loc = (route["start_location"]["lat"],route["start_location"]["lng"])
     map = folium.Map(location=loc, zoom_start=13)
     dis = route["distance"]
@@ -86,7 +86,7 @@ def drawmap(route):
         folium.Marker(location=pos[1], popup=message))
     return map
 
-def searchAttraction(loc):
+def searchAttraction(loc): #Search attractions in the place, and return search except those containing tours or rental
     g = geocoder.osm(loc)
     lat = g.json['lat']
     lng = g.json['lng']
@@ -99,29 +99,29 @@ def searchAttraction(loc):
     response = requests.get(url, headers=headers, params=parameter)
     raw = response.json()
     attractions = []
-    for place in raw["data"]:
+    for place in raw["data"]: #Get rid off those "trips" "Rental" and "Tours"
         if "Tours" not in place["name"] and "Trips" not in place["name"] and "Rental" not in place["name"]:
             attractions.append({"name":place["name"],"place_string":place["location_string"],"lat":place["latitude"],"lng":place["longitude"]})
     return attractions
 
-loc = input("Please Enter in a place you would like to go: ")
-weather = getweather(loc)
-print(f"weather in {loc} in the folowing 5 days.")
-display(weather)
+loc = input("Please Enter in a place you would like to go: ") #Get from user input about place
+weather = getweather(loc)                                     #Get weather in five day
+print(f"weather in {loc} in the folowing 5 days.")  
+display(weather)                                              #Display weathers
 print(f"Attractions recommended in {loc}.")
-display(pd.DataFrame(searchAttraction(loc)))
-food = input("Enter a cuisine: ")
+display(pd.DataFrame(searchAttraction(loc)))                  #Display attractions
+food = input("Enter a cuisine: ")                             #Get from user input about cuisines
 restaurants_recommendation = []
-for name in find_restaurant(loc, food):
-    na = yelp_reviews(name['id'])
-    rs = name['name']
-    for a in na:
-        sentiment= text_analytics(a['text'])
-        rating = a['rating'] 
-        restaurants_recommendation.append({"Restaurant_Name" : rs, "Reviwer_Sentiment" : sentiment, "Rating" : rating})
+for name in find_restaurant(loc, food):                      #Generate a list of recommendation
+    rest_id = yelp_reviews(name['id'])
+    rest_name = name['name']
+    for i in rest_id:
+        sentiment= text_analytics(i['text'])
+        rating = i['rating'] 
+        restaurants_recommendation.append({"Restaurant_Name" : rest_name, "Reviwer_Sentiment" : sentiment, "Rating" : rating})
 rr = pd.DataFrame(restaurants_recommendation)
-print(f"{food} recommendation in {loc}.")
+print(f"{food} recommendation in {loc}.")                     #Display recommendation
 display(rr)
 ori = input("Please enter in where you start at: ")
 des = input("Please enter in your destination: ")
-drawmap(gmaproute(ori,des))
+drawmap(gmaproute(ori,des))                                   #Display the map with routes
