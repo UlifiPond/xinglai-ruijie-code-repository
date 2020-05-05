@@ -106,8 +106,8 @@ def searchAttraction(loc):
 
 loc = input("Please Enter in a place you would like to go: ")
 weather = getweather(loc)
-print(weather)
-print(pd.DataFrame(searchAttraction(loc)))
+display(weather)
+display(pd.DataFrame(searchAttraction(loc)))
 food = input("Enter a cuisine: ")
 restaurants_recommendation = []
 for name in find_restaurant(loc, food):
@@ -118,7 +118,7 @@ for name in find_restaurant(loc, food):
         rating = a['rating'] 
         restaurants_recommendation.append({"Restaurant_Name" : rs, "Reviwer_Sentiment" : sentiment, "Rating" : rating})
 rr = pd.DataFrame(restaurants_recommendation)
-print(rr)
+display(rr)
 ori = input("Please enter in where you start at: ")
 des = input("Please enter in your destination: ")
 drawmap(gmaproute(ori,des))
